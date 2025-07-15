@@ -4,8 +4,10 @@ import openai
 
 load_dotenv()
 
-openai.api_key = os.getenv("GROQ_API_KEY")
-openai.api_base = "https://api.groq.com/openai/v1"
+client = openai.OpenAI(
+    api_key=os.getenv("GROQ_API_KEY"),
+    base_url="https://api.groq.com/openai/v1"
+)
 
 def generate_product_description_groq(user_input):
     prompt = f"""
@@ -23,7 +25,7 @@ def generate_product_description_groq(user_input):
     """
 
     try:
-        response = openai.ChatCompletion.create(
+        response = client.chat.completions.create(
             model="llama3-70b-8192",
             messages=[
                 {"role": "system", "content": "You are a product catalog assistant."},
@@ -32,8 +34,7 @@ def generate_product_description_groq(user_input):
             temperature=0.7,
             max_tokens=300
         )
-
-        return response['choices'][0]['message']['content']
+        return response.choices[0].message.content
 
     except Exception as e:
         print("Groq generation error:", e)

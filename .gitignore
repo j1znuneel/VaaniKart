@@ -1,8 +1,5 @@
-<<<<<<< HEAD
-venv
-.env
-=======
 .venv
+VaaniKarthack
 .env
 .gitignore
 
@@ -104,4 +101,3 @@ pip-wheel-metadata/
 =======
 venv
 .env
->>>>>>> 69761db72675fdd21ca8a151dd58434846054550
