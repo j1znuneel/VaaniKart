@@ -3,15 +3,18 @@ import requests
 from django.views.decorators.csrf import csrf_exempt
 from django.http import JsonResponse, HttpResponse
 import os
-from rest_framework import status
 from dotenv import load_dotenv
-from .models import Product
-from .serializers import ProductSerializer
 from rest_framework.views import APIView
 from rest_framework.response import Response
-from rest_framework import status
-from .groq_description import generate_product_description_groq
+
+from .models import Product
+from .serializers import ProductSerializer
+
+from decimal import Decimal
 from .translation import translate_to_english
+from .groq_description import generate_product_description_groq
+
+
 
 load_dotenv()
 
@@ -107,6 +110,8 @@ def whatsapp_webhook(request):
                 print(f"✉️ Text Message: {user_text}")
 
                 if user_text in ["hi", "hello", "hey"]:
+                    USER_LANGUAGE_PREFS.pop(user_number, None)
+                    USER_ACTION_STATE.pop(user_number, None)
                     intro = (
                         "👋 Welcome to *VaaniKart*, your voice-based catalog assistant!\n\n"
                         "I can help you create product listings using just your voice.\n\n"
@@ -132,16 +137,18 @@ def whatsapp_webhook(request):
                             "1️⃣ Add Items\n"
                             "2️⃣ Remove Items\n"
                             "3️⃣ Update Items\n"
-                            "4️⃣ Export Items"
+                            "4️⃣ View Items"
+
                         )
                     elif lang_code == "hi":
                         prompt = (
                             f"✅ भाषा *{lang_name}* में सेट की गई है।\n\n"
-                            "आप क्या करना चाहेंगे?\n"
+                           "आप क्या करना चाहेंगे?\n"
                             "1️⃣ आइटम जोड़ें\n"
                             "2️⃣ आइटम हटाएं\n"
                             "3️⃣ आइटम अपडेट करें\n"
-                            "4️⃣ आइटम एक्सपोर्ट करें"
+                            "4️⃣ आइटम देखें"
+
                         )
                     elif lang_code == "ta":
                         prompt = (
@@ -150,7 +157,7 @@ def whatsapp_webhook(request):
                             "1️⃣ பொருட்களைச் சேர்க்கவும்\n"
                             "2️⃣ பொருட்களை நீக்கவும்\n"
                             "3️⃣ பொருட்களை புதுப்பிக்கவும்\n"
-                            "4️⃣ பொருட்களை ஏற்றுமதி செய்யவும்"
+                            "4️⃣ பொருட்களை காண்க"
                         )
                     else:
                         prompt = "✅ Language set. What would you like to do?"
@@ -167,24 +174,40 @@ def whatsapp_webhook(request):
                     else:
                         reply = "🎙 Please send a voice note or text to add the item."
                     send_reply_to_user(user_number, reply, access_token, phone_number_id)
+                elif user_text == "4":
+                    try:
+                        response = requests.get("http://127.0.0.1:8000/api/products/")  # Adjust to your backend domain if deployed
+                        if response.status_code == 200:
+                            products = response.json()
+                            print(products
+                                  )
+                            if not products:
+                                reply = "📦 No items found in your catalog."
+                            else:
+                                reply = "🛍️ *Your Items:*\n\n"
+                                for product in products:
+                                    reply += (
+                                        f"🧾 *{product['name']}*\n"
+                                        f"📄 {product['description']}\n"
+                                        f"💰 Price: ₹{product['price']}\n"
+                                        f"📦 Stock: {product['current_stock']}\n"
+                                        f"🏷️ Category: {product['category'].capitalize()}\n\n"
+                                    )
+                        else:
+                            reply = "⚠️ Couldn't fetch items at the moment. Please try again later."
+                    except Exception as e:
+                        print("❌ Error fetching products:", str(e))
+                        reply = "⚠️ Failed to fetch products."
+
+                    send_reply_to_user(user_number, reply, access_token, phone_number_id)
 
                 else:
                     if USER_ACTION_STATE.get(user_number) == "add_item":
-                        USER_ACTION_STATE[user_number] = {"pending_item": user_text}
-                        reply_text = f"🆕 You said:\n\"{user_text}\"\n\n✅ Do you want to *confirm* adding this item?\nPlease reply with *yes* or *no*."
-                    elif USER_ACTION_STATE.get(user_number, {}).get("pending_item"):
-                        if user_text in ["yes", "y","Yes"]:
-                            confirmed_item = USER_ACTION_STATE[user_number]["pending_item"]
-                            USER_ACTION_STATE[user_number] = None
-                            reply_text = f"✅ Item *added*:\n{confirmed_item}"
-                        elif user_text in ["no", "n","No"]:
-                            USER_ACTION_STATE[user_number] = None
-                            reply_text = "❌ Okay, item was not added. You can send a new one."
-                        else:
-                            reply_text = "❓ Please reply with *yes* or *no* to confirm the item."
+                        # Process the product input
+                        process_product_input(user_number, user_text, access_token, phone_number_id)
                     else:
-                        reply_text ="Please select a valid option"
-                    send_reply_to_user(user_number, reply_text, access_token, phone_number_id)
+                        reply_text = user_text.upper()
+                        send_reply_to_user(user_number, reply_text, access_token, phone_number_id)
 
             elif msg_type == "audio":
                 print("🎤 Audio message detected.")
@@ -216,31 +239,16 @@ def whatsapp_webhook(request):
 
                 if lemon_response.status_code == 200:
                     transcript = lemon_response.text.strip()
+                    
+                    if USER_ACTION_STATE.get(user_number) == "add_item":
+                        # Process the transcribed audio as product input
+                        process_product_input(user_number, transcript, access_token, phone_number_id)
+                    else:
+                        response_msg = transcript
+                        send_reply_to_user(user_number, response_msg, access_token, phone_number_id)
                 else:
-                    transcript = "[Unable to transcribe]"
-                if USER_ACTION_STATE.get(user_number) == "add_item":
-                    original_item = transcript
-                    translated_item = translate_to_english(original_item)
-
-                    print(f"🌍 Translated Audio: {translated_item}")
-
-                    product_json = generate_product_description_groq(translated_item)
-                    print("📦 GROQ Output JSON:")
-                    print(json.dumps(product_json, indent=2))
-
-                    USER_ACTION_STATE[user_number] = {
-                        "original_item": original_item,
-                        "translated_item": translated_item,
-                        "product_json": product_json
-                    }
-
-                    response_msg = f"🆕 You said:\n\"{original_item}\"\n\n✅ Do you want to *confirm* adding this item?\nPlease reply with *yes* or *no*."
-
-                elif USER_ACTION_STATE.get(user_number, {}).get("pending_item"):
-                    response_msg = "⏳ Waiting for confirmation. Please reply with *yes* or *no*."
-                else:
-                    response_msg = transcript
-                send_reply_to_user(user_number, response_msg, access_token, phone_number_id)
+                    print("❌ Transcription failed")
+                    send_reply_to_user(user_number, "[Error: Couldn't transcribe audio]", access_token, phone_number_id)
 
             else:
                 print(f"❓ Unsupported message type: {msg_type}")
@@ -252,16 +260,127 @@ def whatsapp_webhook(request):
 
     return HttpResponse(status=405)
 
+def process_product_input(user_number, user_input, access_token, phone_number_id):
+    """
+    Process product input (text or transcribed audio) through translation and description generation,
+    then save to database and send response to user.
+    """
+    try:
+        lang_code = USER_LANGUAGE_PREFS.get(user_number, "en")
+        
+        # Translate to English if not already English
+        if lang_code != "en":
+            translated_text = translate_to_english(user_input)
+            print(f"🌍 Translated text: {translated_text}")
+        else:
+            translated_text = user_input
+        
+        # Generate product description
+        product_data = generate_product_description_groq(translated_text)
+        
+        if "error" in product_data:
+            # Handle non-product input or generation error
+            error_msg = product_data["error"]
+            print(f"❌ {error_msg}")
+            send_reply_to_user(user_number, f" {error_msg}", access_token, phone_number_id)
+            return
+        
+        # Process each product in the response
+        for product in product_data:
+            # Save to database
+            try:
+                # Convert price from "₹100" to Decimal(100.00)
+                price_str = product.get("price", "Not provided")
+                if price_str != "Not provided":
+                    price = Decimal(price_str.replace("₹", "").strip())
+                else:
+                    price = Decimal("0.00")
+                
+                # Convert quantity to stock count (simplified - you might want more sophisticated parsing)
+                quantity_str = product.get("quantity", "Not provided")
+                current_stock = 1 if quantity_str != "Not provided" else 0
+                
+                # Map category to our choices
+                category_map = {
+                    "Fruits": "fruits",
+                    "Vegetables": "vegetables",
+                    "Spices": "spices",
+                    "Grains": "grains",
+                    "Oils": "oils",
+                    "Dairy Products": "dairy",
+                    "Pickles": "pickles",
+                    "Snacks": "snacks",
+                    "Handicrafts": "handicrafts",
+                    "Utensils": "utensils",
+                    "Garments": "garments",
+                    "Home Decor": "home_decor"
+                }
+                category = category_map.get(product["category"], "other")
+                
+                # Create and save product
+                new_product = Product(
+                    name=product["product_name"],
+                    description=product["description"],
+                    category=category,
+                    price=price,
+                    current_stock=current_stock,
+                    is_available=True
+                )
+                new_product.save()
+                
+                # Prepare success message
+                success_msg = (
+                    f"✅ *{product['product_name']}* added successfully!\n\n"
+                    f"*Description:* {product['description']}\n"
+                    f"*Price:* {product.get('price', 'Not provided')}\n"
+                    f"*Quantity:* {product.get('quantity', 'Not provided')}\n"
+                    f"*Category:* {product['category']}"
+                )
+                
+                # send_reply_to_user(user_number, success_msg, access_token, phone_number_id)
+                lang_code = USER_LANGUAGE_PREFS.get(user_number, "en")
 
+                # Language-specific follow-up prompt
+                if lang_code == "hi":
+                    follow_up = (
+                        "\n\nअब आप क्या करना चाहेंगे?\n"
+                        "1️⃣ आइटम जोड़ें\n"
+                        "2️⃣ आइटम हटाएं\n"
+                        "3️⃣ आइटम अपडेट करें\n"
+                        "4️⃣ आइटम एक्सपोर्ट करें"
+                    )
+                elif lang_code == "ta":
+                    follow_up = (
+                        "\n\nஇப்போது நீங்கள் என்ன செய்ய விரும்புகிறீர்கள்?\n"
+                        "1️⃣ பொருட்களைச் சேர்க்கவும்\n"
+                        "2️⃣ பொருட்களை நீக்கவும்\n"
+                        "3️⃣ பொருட்களை புதுப்பிக்கவும்\n"
+                        "4️⃣ பொருட்களை ஏற்றுமதி செய்யவும்"
+                    )
+                else:
+                    follow_up = (
+                        "\n\nWhat would you like to do next?\n"
+                        "1️⃣ Add Items\n"
+                        "2️⃣ Remove Items\n"
+                        "3️⃣ Update Items\n"
+                        "4️⃣ Export Items"
+                    )
 
+                send_reply_to_user(user_number, success_msg + follow_up, access_token, phone_number_id)
 
-class ProductCreateView(APIView):
-    def post(self, request, format=None):
-        serializer = ProductSerializer(data=request.data)
-        if serializer.is_valid():
-            serializer.save()
-            return Response({"message": "✅ Product created successfully", "product": serializer.data}, status=status.HTTP_201_CREATED)
-        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+                
+            except Exception as e:
+                print(f"❌ Error saving product to database: {str(e)}")
+                error_msg = f"⚠️ Failed to save product: {product['product_name']}"
+                send_reply_to_user(user_number, error_msg, access_token, phone_number_id)
+        
+        # Reset action state
+        USER_ACTION_STATE[user_number] = None
+        
+    except Exception as e:
+        print(f"❌ Error processing product input: {str(e)}")
+        send_reply_to_user(user_number, "⚠️ An error occurred while processing your request.", access_token, phone_number_id)
+
 class ProductListView(APIView):
     def get(self, request):
         products = Product.objects.all()

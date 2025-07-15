@@ -38,7 +38,9 @@ ALLOWED_HOSTS = [
     "5253a5dcfa32.ngrok-free.app",
     "ceb721f42665.ngrok-free.app",# 👈 Add your ngrok URL here
     "b6ed4acfc16a.ngrok-free.app",
-    "9779a80066d3.ngrok-free.app"
+    "9779a80066d3.ngrok-free.app",
+    "a9cc43e61eb2.ngrok-free.app",
+    "f3943af0d355.ngrok-free.app"
 ]
 
 # Application definition
@@ -50,14 +52,9 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
-<<<<<<< HEAD
-    'rest_framework',
-    'vaanikart'
-=======
     'vaanikart',
     'corsheaders',
     'rest_framework',  # Add Django REST Framework
->>>>>>> 454a7dfccd35719f15a459826fb361b6a21c0c98
 ]
 
 CORS_ALLOWED_ORIGINS = [
