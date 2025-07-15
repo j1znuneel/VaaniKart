@@ -97,3 +97,6 @@ pip-wheel-metadata/
 # Coverage
 .coverage
 .cache
+=======
+venv
+.env
