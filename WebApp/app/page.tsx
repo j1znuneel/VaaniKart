@@ -607,7 +607,7 @@ export default function VaaniKart() {
                         <ShoppingCart className="w-12 h-12 sm:w-16 sm:h-16 text-gray-300 mx-auto mb-4" />
                         <p className="text-base sm:text-lg text-gray-500 mb-4">{dict.emptyCart}</p>
                         <Button
-                          onClick={() => document.querySelector("[data-sheet-close]")?.click()}
+                          onClick={() => (document.querySelector("[data-sheet-close]") as HTMLElement | null)?.click()}
                           className="bg-green-600 hover:bg-green-700"
                         >
                           {dict.continueShopping}
