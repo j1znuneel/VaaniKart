@@ -16,6 +16,8 @@ from .groq_description import generate_product_description_groq
 from django.shortcuts import get_object_or_404
 from rest_framework.decorators import api_view
 
+from .supabase_utils import get_product_link
+
 
 
 load_dotenv()
@@ -208,28 +210,34 @@ def whatsapp_webhook(request):
         
                 elif user_text == "4":
                     try:
-                        response = requests.get("http://127.0.0.1:8000/api/products/")  # Adjust to your backend domain if deployed
+                        response = requests.get("http://127.0.0.1:8000/api/products/")  # Or use your deployed API URL
                         if response.status_code == 200:
                             products = response.json()
-                            print(products
-                                  )
+                            print("📦 Products fetched:", products)
+
                             if not products:
                                 reply = "📦 No items found in your catalog."
                             else:
-                                reply = "🛍️ *Your Items:*\n\n"
+                                lines = ["🛍️ *Your Items:*"]
                                 for product in products:
-                                    reply += (
+                                    product_name_slug = product['name'].replace(" ", "-").lower()
+                                    product_url = f"https://vaani-kart.vercel.app/product/{product_name_slug}"
+                                    lines.append(
                                         f"🧾 *{product['name']}*\n"
                                         f"📄 {product['description']}\n"
                                         f"💰 Price: ₹{product['price']}\n"
                                         f"📦 Stock: {product['current_stock']}\n"
-                                        f"🏷️ Category: {product['category'].capitalize()}\n\n"
+                                        f"🏷️ Category: {product['category'].replace('_', ' ').title()}\n"
+                                        f"🔗 [View Product]({product_url})\n"
                                     )
+                                reply = "\n".join(lines)
                         else:
+                            print(f"⚠️ API error {response.status_code}: {response.text}")
                             reply = "⚠️ Couldn't fetch items at the moment. Please try again later."
+
                     except Exception as e:
                         print("❌ Error fetching products:", str(e))
-                        reply = "⚠️ Failed to fetch products."
+                        reply = "⚠️ Failed to fetch products due to an internal error."
 
                     send_reply_to_user(user_number, reply, access_token, phone_number_id)
 
