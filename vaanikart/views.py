@@ -162,8 +162,18 @@ def whatsapp_webhook(request):
 
                 else:
                     if USER_ACTION_STATE.get(user_number) == "add_item":
-                        USER_ACTION_STATE[user_number] = None
-                        reply_text = f"🆕 Added Item:\n{user_text}"
+                        USER_ACTION_STATE[user_number] = {"pending_item": user_text}
+                        reply_text = f"🆕 You said:\n\"{user_text}\"\n\n✅ Do you want to *confirm* adding this item?\nPlease reply with *yes* or *no*."
+                    elif USER_ACTION_STATE.get(user_number, {}).get("pending_item"):
+                        if user_text in ["yes", "y","Yes"]:
+                            confirmed_item = USER_ACTION_STATE[user_number]["pending_item"]
+                            USER_ACTION_STATE[user_number] = None
+                            reply_text = f"✅ Item *added*:\n{confirmed_item}"
+                        elif user_text in ["no", "n","No"]:
+                            USER_ACTION_STATE[user_number] = None
+                            reply_text = "❌ Okay, item was not added. You can send a new one."
+                        else:
+                            reply_text = "❓ Please reply with *yes* or *no* to confirm the item."
                     else:
                         reply_text = user_text.upper()
                     send_reply_to_user(user_number, reply_text, access_token, phone_number_id)
@@ -202,11 +212,12 @@ def whatsapp_webhook(request):
                     transcript = "[Unable to transcribe]"
 
                 if USER_ACTION_STATE.get(user_number) == "add_item":
-                    USER_ACTION_STATE[user_number] = None
-                    response_msg = f"🆕 Added Item:\n{transcript}"
+                    USER_ACTION_STATE[user_number] = {"pending_item": transcript}
+                    response_msg = f"🆕 You said:\n\"{transcript}\"\n\n✅ Do you want to *confirm* adding this item?\nPlease reply with *yes* or *no*."
+                elif USER_ACTION_STATE.get(user_number, {}).get("pending_item"):
+                    response_msg = "⏳ Waiting for confirmation. Please reply with *yes* or *no*."
                 else:
                     response_msg = transcript
-
                 send_reply_to_user(user_number, response_msg, access_token, phone_number_id)
 
             else:
@@ -218,3 +229,4 @@ def whatsapp_webhook(request):
         return JsonResponse({"status": "received"}, status=200)
 
     return HttpResponse(status=405)
+
