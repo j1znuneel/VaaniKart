@@ -1,0 +1,8 @@
+Django
+twilio
+openai
+pydub
+requests
+python-dotenv
+
+
