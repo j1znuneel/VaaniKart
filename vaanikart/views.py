@@ -46,6 +46,7 @@ def whatsapp_webhook(request):
         challenge = request.GET.get("hub.challenge")
 
         if mode == "subscribe" and token == verify_token:
+            print("WEBHOOK_VERIFIED") 
             return HttpResponse(challenge, status=200)
         else:
             return HttpResponse("Verification failed", status=403)
@@ -54,7 +55,10 @@ def whatsapp_webhook(request):
         # ✅ Handle real message delivery
         try:
             body = json.loads(request.body)
-
+            print("=== Incoming Headers ===")
+            print(dict(request.headers))
+            print("=== Incoming Body ===")
+            print(json.dumps(body, indent=2))
             entry = body["entry"][0]
             change = entry["changes"][0]
             value = change["value"]
@@ -64,11 +68,18 @@ def whatsapp_webhook(request):
                 message = messages[0]
                 user_number = message["from"]
                 msg_type = message["type"]
-
+                access_token = os.getenv("META_TOKEN")
+                phone_number_id = os.getenv("META_PHONE_NUMBER_ID")
+                
+                
+                if msg_type == "text":
+                    user_text = message["text"]["body"]
+                    reply_text = user_text.upper()
+                    send_reply_to_user(user_number, reply_text, access_token, phone_number_id)
                 if msg_type == "audio":
                     media_id = message["audio"]["id"]
-                    access_token = os.getenv("META_TOKEN")
-                    phone_number_id = os.getenv("META_PHONE_NUMBER_ID")
+                    # access_token = os.getenv("META_TOKEN")
+                    # phone_number_id = os.getenv("META_PHONE_NUMBER_ID")
 
                     # Step 1: Get media URL
                     media_url = extract_media_url(media_id, access_token)
@@ -89,6 +100,7 @@ def whatsapp_webhook(request):
 
                     # Step 4: Send reply
                     send_reply_to_user(user_number, transcript, access_token, phone_number_id)
+                    pass
 
         except Exception as e:
             print("Webhook error:", str(e))
