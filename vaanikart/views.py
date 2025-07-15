@@ -35,7 +35,18 @@ def send_reply_to_user(user_number, message, access_token, phone_number_id):
         }
     }
 
-    requests.post(url, headers=headers, json=data)
+    print("📤 Sending reply to user...")
+    print("Payload:", json.dumps(data, indent=2))
+
+    response = requests.post(url, headers=headers, json=data)
+
+    print("📥 Meta API Response:")
+    print("Status:", response.status_code)
+    print("Response Body:", response.text)
+
+    if response.status_code != 200:
+        print("❌ Failed to send message. Check token, permissions, or payload format.")
+
 @csrf_exempt
 def whatsapp_webhook(request):
     if request.method == "GET":
