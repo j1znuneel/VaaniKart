@@ -36,13 +36,25 @@ def send_reply_to_user(user_number, message, access_token, phone_number_id):
     }
 
     requests.post(url, headers=headers, json=data)
-
 @csrf_exempt
 def whatsapp_webhook(request):
-    if request.method == "POST":
-        body = json.loads(request.body)
+    if request.method == "GET":
+        # ✅ Handle Meta verification
+        verify_token = os.getenv("VERIFY_TOKEN", "vaanikart_hackathon")
+        mode = request.GET.get("hub.mode")
+        token = request.GET.get("hub.verify_token")
+        challenge = request.GET.get("hub.challenge")
 
+        if mode == "subscribe" and token == verify_token:
+            return HttpResponse(challenge, status=200)
+        else:
+            return HttpResponse("Verification failed", status=403)
+
+    elif request.method == "POST":
+        # ✅ Handle real message delivery
         try:
+            body = json.loads(request.body)
+
             entry = body["entry"][0]
             change = entry["changes"][0]
             value = change["value"]
