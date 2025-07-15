@@ -246,3 +246,8 @@ class ProductCreateView(APIView):
             serializer.save()
             return Response({"message": "✅ Product created successfully", "product": serializer.data}, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+class ProductListView(APIView):
+    def get(self, request):
+        products = Product.objects.all()
+        serializer = ProductSerializer(products, many=True)
+        return Response(serializer.data)
