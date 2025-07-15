@@ -3,12 +3,25 @@ from django.core.validators import MinValueValidator
 from django.utils.translation import gettext_lazy as _
 
 
-
+CATEGORY_CHOICES = [
+    ("fruits", "Fruits"),
+    ("vegetables", "Vegetables"),
+    ("spices", "Spices"),
+    ("grains", "Grains"),
+    ("oils", "Oils"),
+    ("dairy", "Dairy Products"),
+    ("pickles", "Pickles"),
+    ("snacks", "Snacks"),
+    ("handicrafts", "Handicrafts"),
+    ("utensils", "Utensils"),
+    ("garments", "Garments"),
+    ("home_decor", "Home Decor"),
+]
 class Product(models.Model):
     """Items available for sale"""
     name = models.CharField(max_length=100)
     description = models.TextField()
-    category = models.Charfield(choices=[()])
+    category = models.CharField(max_length=50, choices=CATEGORY_CHOICES)
     price = models.DecimalField(max_digits=10, decimal_places=2, validators=[MinValueValidator(0)])
     current_stock = models.PositiveIntegerField(default=0)
 #    minimum_stock = models.PositiveIntegerField(default=5, help_text="Alert when stock goes below this")
