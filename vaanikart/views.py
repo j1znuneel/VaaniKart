@@ -13,6 +13,8 @@ from .serializers import ProductSerializer
 from decimal import Decimal
 from .translation import translate_to_english
 from .groq_description import generate_product_description_groq
+from django.shortcuts import get_object_or_404
+from rest_framework.decorators import api_view
 
 
 
@@ -174,6 +176,36 @@ def whatsapp_webhook(request):
                     else:
                         reply = "🎙 Please send a voice note or text to add the item."
                     send_reply_to_user(user_number, reply, access_token, phone_number_id)
+                elif user_text == "2":
+                    USER_ACTION_STATE[user_number] = "delete_item"
+                    try:
+                        response = requests.get("http://127.0.0.1:8000/api/products/")
+                        if response.status_code == 200:
+                            products = response.json()
+                            if not products:
+                                reply = "📦 No items found to delete."
+                                USER_ACTION_STATE[user_number] = None
+                            else:
+                                USER_ACTION_STATE[user_number] = {
+                                    "action": "delete_item",
+                                    "options": products
+                                }
+                                reply = "🗑️ Please choose the item number to delete:\n\n"
+                                for i, product in enumerate(products, start=1):
+                                    reply += (
+                                        f"{i}. *{product['name']}* — ₹{product['price']} "
+                                        f"(Stock: {product['current_stock']})\n"
+                                    )
+                                reply += "\nReply with the item number to delete."
+                        else:
+                            reply = "⚠️ Couldn't fetch products. Try again later."
+                    except Exception as e:
+                        print("❌ Error fetching products for deletion:", str(e))
+                        reply = "⚠️ Failed to fetch products."
+
+                    send_reply_to_user(user_number, reply, access_token, phone_number_id)
+
+        
                 elif user_text == "4":
                     try:
                         response = requests.get("http://127.0.0.1:8000/api/products/")  # Adjust to your backend domain if deployed
@@ -205,6 +237,32 @@ def whatsapp_webhook(request):
                     if USER_ACTION_STATE.get(user_number) == "add_item":
                         # Process the product input
                         process_product_input(user_number, user_text, access_token, phone_number_id)
+                    elif isinstance(USER_ACTION_STATE.get(user_number), dict) and USER_ACTION_STATE[user_number].get("action") == "delete_item":
+                            try:
+                                selected_index = int(user_text.strip())
+                                product_list = USER_ACTION_STATE[user_number]["options"]
+                                if 1 <= selected_index <= len(product_list):
+                                    selected_product = product_list[selected_index - 1]
+                                    product_name = selected_product["name"]
+                                    delete_url = f"http://127.0.0.1:8000/api/products/delete-by-name/?name={product_name}"
+
+                                    del_response = requests.delete(delete_url)
+                                    if del_response.status_code == 200:
+                                        reply = f"✅ Product *{product_name}* deleted successfully."
+                                    else:
+                                        reply = f"⚠️ Failed to delete *{product_name}*. Try again."
+
+                                    USER_ACTION_STATE[user_number] = None
+                                else:
+                                    reply = "⚠️ Invalid selection. Please reply with a valid item number."
+                            except ValueError:
+                                reply = "⚠️ Please reply with a valid number."
+                            except Exception as e:
+                                print("❌ Error deleting product:", str(e))
+                                reply = "⚠️ An error occurred during deletion."
+
+                            send_reply_to_user(user_number, reply, access_token, phone_number_id)
+
                     else:
                         reply_text = user_text.upper()
                         send_reply_to_user(user_number, reply_text, access_token, phone_number_id)
@@ -386,3 +444,21 @@ class ProductListView(APIView):
         products = Product.objects.all()
         serializer = ProductSerializer(products, many=True)
         return Response(serializer.data)
+    
+    
+
+@api_view(['DELETE'])
+def delete_product_by_name(request):
+    product_name = request.query_params.get("name")
+    if not product_name:
+        return Response({"error": "Product name is required."}, status=status.HTTP_400_BAD_REQUEST)
+
+    products = Product.objects.filter(name__iexact=product_name)
+
+    if not products.exists():
+        return Response({"error": f"No product found with name '{product_name}'."}, status=status.HTTP_404_NOT_FOUND)
+
+    count = products.count()
+    products.delete()
+
+    return Response({"message": f"Deleted {count} product(s) named '{product_name}'."}, status=status.HTTP_200_OK)
