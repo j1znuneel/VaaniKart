@@ -38,7 +38,9 @@ ALLOWED_HOSTS = [
     "5253a5dcfa32.ngrok-free.app",
     "ceb721f42665.ngrok-free.app",# 👈 Add your ngrok URL here
     "b6ed4acfc16a.ngrok-free.app",
-    "9779a80066d3.ngrok-free.app"
+    "9779a80066d3.ngrok-free.app",
+    "a9cc43e61eb2.ngrok-free.app",
+    "f3943af0d355.ngrok-free.app"
 ]
 
 # Application definition

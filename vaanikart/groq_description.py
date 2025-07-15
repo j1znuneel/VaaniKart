@@ -64,7 +64,8 @@ Instructions:
             max_tokens=400
         )
 
-        content = response['choices'][0]['message']['content'].strip()
+        content = response.choices[0].message.content.strip()
+
         
         # Handle irrelevant input
         if content.startswith("INVALID"):

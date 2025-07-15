@@ -23,7 +23,7 @@ class Product(models.Model):
     description = models.TextField()
     category = models.CharField(max_length=50, choices=CATEGORY_CHOICES)
     price = models.DecimalField(max_digits=10, decimal_places=2, validators=[MinValueValidator(0)])
-    current_stock = models.PositiveIntegerField(default=0)
+    current_stock = models.CharField(max_length=50)
 #    minimum_stock = models.PositiveIntegerField(default=5, help_text="Alert when stock goes below this")
     
     is_available = models.BooleanField(default=True)
