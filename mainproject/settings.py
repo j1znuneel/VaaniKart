@@ -50,7 +50,8 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
-    'vaanikart'
+    'vaanikart',
+    'rest_framework',  # Add Django REST Framework
 ]
 
 MIDDLEWARE = [
