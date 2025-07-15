@@ -8,6 +8,15 @@ from dotenv import load_dotenv
 load_dotenv()
 
 LEMONFOX_KEY = os.getenv("LEMONFOX_KEY")
+USER_LANGUAGE_PREFS = {}
+USER_ACTION_STATE = {}
+
+
+LANGUAGE_MAP = {
+    "1": {"name": "English", "code": "en"},
+    "2": {"name": "Hindi", "code": "hi"},
+    "3": {"name": "Tamil", "code": "ta"},
+}
 
 
 def extract_media_url(media_id, access_token):
@@ -75,14 +84,10 @@ def whatsapp_webhook(request):
             entry = body["entry"][0]
             change = entry["changes"][0]
             value = change["value"]
-
-            # 🧠 Debug: Log entire value block
-            print("🧠 Message block:", json.dumps(value, indent=2))
-
             messages = value.get("messages", [])
+
             if messages:
                 print("✅ Message received.")
-
                 message = messages[0]
                 user_number = message.get("from", "unknown")
                 msg_type = message.get("type", "none")
@@ -93,10 +98,79 @@ def whatsapp_webhook(request):
                 print(f"📝 Message Type: {msg_type}")
 
                 if msg_type == "text":
-                    user_text = message["text"]["body"]
+                    user_text = message["text"]["body"].strip().lower()
                     print(f"✉️ Text Message: {user_text}")
-                    reply_text = user_text.upper()
-                    send_reply_to_user(user_number, reply_text, access_token, phone_number_id)
+
+                    if user_text in ["hi", "hello", "hey"]:
+                        intro = (
+                            "👋 Welcome to *VaaniKart*, your voice-based catalog assistant!\n\n"
+                            "I can help you create product listings using just your voice.\n\n"
+                            "Please choose your language to get started:\n"
+                            "1. 🇬🇧 English\n"
+                            "2. 🇮🇳 Hindi\n"
+                            "3. 🇮🇳 Tamil\n\n"
+                            "Reply with *1*, *2*, or *3* to continue."
+                        )
+                        send_reply_to_user(user_number, intro, access_token, phone_number_id)
+
+                    elif user_text in LANGUAGE_MAP and user_number not in USER_LANGUAGE_PREFS:
+                        USER_LANGUAGE_PREFS[user_number] = LANGUAGE_MAP[user_text]["code"]
+                        USER_ACTION_STATE[user_number] = None  # Reset any existing state
+                        lang = LANGUAGE_MAP[user_text]
+                        lang_name = lang["name"]
+                        lang_code = lang["code"]
+
+                        if lang_code == "en":
+                            prompt = (
+                                f"✅ Language set to *{lang_name}*.\n\n"
+                                "What would you like to do?\n"
+                                "1️⃣ Add Items\n"
+                                "2️⃣ Remove Items\n"
+                                "3️⃣ Update Items\n"
+                                "4️⃣ Export Items"
+                            )
+                        elif lang_code == "hi":
+                            prompt = (
+                                f"✅ भाषा *{lang_name}* में सेट की गई है।\n\n"
+                                "आप क्या करना चाहेंगे?\n"
+                                "1️⃣ आइटम जोड़ें\n"
+                                "2️⃣ आइटम हटाएं\n"
+                                "3️⃣ आइटम अपडेट करें\n"
+                                "4️⃣ आइटम एक्सपोर्ट करें"
+                            )
+                        elif lang_code == "ta":
+                            prompt = (
+                                f"✅ மொழி *{lang_name}* ஆக அமைக்கப்பட்டது.\n\n"
+                                "நீங்கள் என்ன செய்ய விரும்புகிறீர்கள்?\n"
+                                "1️⃣ பொருட்களைச் சேர்க்கவும்\n"
+                                "2️⃣ பொருட்களை நீக்கவும்\n"
+                                "3️⃣ பொருட்களை புதுப்பிக்கவும்\n"
+                                "4️⃣ பொருட்களை ஏற்றுமதி செய்யவும்"
+                            )
+                        else:
+                            prompt = "✅ Language set. What would you like to do?"
+
+                        send_reply_to_user(user_number, prompt, access_token, phone_number_id)
+                    elif user_text == "1":
+                        USER_ACTION_STATE[user_number] = "add_item"
+                        lang_code = USER_LANGUAGE_PREFS.get(user_number, "en")
+                        if lang_code == "hi":
+                            reply = "🎙 कृपया जोड़ने के लिए वॉयस या टेक्स्ट भेजें।"
+                        elif lang_code == "ta":
+                            reply = "🎙 தயவுசெய்து சேர்க்க விரும்பும் உரை அல்லது குரலை அனுப்பவும்."
+                        else:
+                            reply = "🎙 Please send a voice note or text to add the item."
+
+                        send_reply_to_user(user_number, reply, access_token, phone_number_id)
+
+                    else:
+                        # Optional: translate reply_text in future using lang_code
+                        if USER_ACTION_STATE.get(user_number) == "add_item":
+                            USER_ACTION_STATE[user_number] = None  # Reset state
+                            reply_text = f"🆕 Added Item:\n{user_text}"
+                        else:
+                            reply_text = user_text.upper()
+                        send_reply_to_user(user_number, reply_text, access_token, phone_number_id)
 
                 elif msg_type == "audio":
                     print("🎤 Audio message detected.")
@@ -109,22 +183,20 @@ def whatsapp_webhook(request):
                         send_reply_to_user(user_number, "[Error: Couldn't access audio]", access_token, phone_number_id)
                         return JsonResponse({"status": "failed"}, status=500)
 
-                    # 🔽 Download audio
                     print(f"⬇️ Downloading audio from: {media_url}")
                     audio_resp = requests.get(media_url, headers={"Authorization": f"Bearer {access_token}"})
                     print(f"📥 Audio Response: {audio_resp.status_code}")
 
-                    # 🦊 Lemonfox API
-                    lemonfox_key = os.getenv("LEMONFOX_KEY")
+                    # Get language preference or fallback to English
+                    lang_code = USER_LANGUAGE_PREFS.get(user_number, "en")
+
                     print("🦊 Sending audio to Lemonfox for transcription...")
-
                     lemon_response = requests.post(
-                    "https://api.lemonfox.ai/v1/audio/transcriptions",
-                    headers={"Authorization": f"Bearer {lemonfox_key}"},
-                    files={"file": ("audio.ogg", audio_resp.content)},
-                    data={"language": "hi", "response_format": "text"}  # CHANGE HERE
-                )
-
+                        "https://api.lemonfox.ai/v1/audio/transcriptions",
+                        headers={"Authorization": f"Bearer {LEMONFOX_KEY}"},
+                        files={"file": ("audio.ogg", audio_resp.content)},
+                        data={"language": lang_code, "response_format": "text"}
+                    )
 
                     print(f"🦊 Lemonfox Status: {lemon_response.status_code}")
                     print("🦊 Lemonfox Response:", lemon_response.text)
@@ -133,8 +205,15 @@ def whatsapp_webhook(request):
                         transcript = lemon_response.text.strip()
                     else:
                         transcript = "[Unable to transcribe]"
+                        
+                    if USER_ACTION_STATE.get(user_number) == "add_item":
+                        USER_ACTION_STATE[user_number] = None  # Reset state after handling
+                        response_msg = f"🆕 Added Item:\n{transcript}"
+                    else:
+                        response_msg = transcript
 
-                    send_reply_to_user(user_number, transcript, access_token, phone_number_id)
+                    send_reply_to_user(user_number, response_msg, access_token, phone_number_id)
+
 
                 else:
                     print(f"❓ Unsupported message type: {msg_type}")
