@@ -10,6 +10,8 @@ from .serializers import ProductSerializer
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
+from .groq_description import generate_product_description_groq
+from .translation import translate_to_english
 
 load_dotenv()
 
@@ -216,10 +218,24 @@ def whatsapp_webhook(request):
                     transcript = lemon_response.text.strip()
                 else:
                     transcript = "[Unable to transcribe]"
-
                 if USER_ACTION_STATE.get(user_number) == "add_item":
-                    USER_ACTION_STATE[user_number] = {"pending_item": transcript}
-                    response_msg = f"🆕 You said:\n\"{transcript}\"\n\n✅ Do you want to *confirm* adding this item?\nPlease reply with *yes* or *no*."
+                    original_item = transcript
+                    translated_item = translate_to_english(original_item)
+
+                    print(f"🌍 Translated Audio: {translated_item}")
+
+                    product_json = generate_product_description_groq(translated_item)
+                    print("📦 GROQ Output JSON:")
+                    print(json.dumps(product_json, indent=2))
+
+                    USER_ACTION_STATE[user_number] = {
+                        "original_item": original_item,
+                        "translated_item": translated_item,
+                        "product_json": product_json
+                    }
+
+                    response_msg = f"🆕 You said:\n\"{original_item}\"\n\n✅ Do you want to *confirm* adding this item?\nPlease reply with *yes* or *no*."
+
                 elif USER_ACTION_STATE.get(user_number, {}).get("pending_item"):
                     response_msg = "⏳ Waiting for confirmation. Please reply with *yes* or *no*."
                 else:

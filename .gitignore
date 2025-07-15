@@ -63,6 +63,10 @@ static/
 .env.local
 .env.*.local
 
+WebApp/node_modules
+WebApp/.next
+
+
 # IDEs and editors
 .vscode/
 .idea/
