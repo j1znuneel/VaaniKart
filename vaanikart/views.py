@@ -14,7 +14,6 @@ from decimal import Decimal
 from .translation import translate_to_english
 from .groq_description import generate_product_description_groq
 
-from .supabase_utils import get_product_link
 
 
 

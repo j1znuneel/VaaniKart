@@ -1,16 +1,13 @@
 import os
+from dotenv import load_dotenv
 from supabase import create_client, Client
+
+load_dotenv()
 
 SUPABASE_URL = os.getenv("SUPABASE_URL")
 SUPABASE_KEY = os.getenv("SUPABASE_KEY")
 
-supabase: Client = create_client(SUPABASE_URL, SUPABASE_KEY)
-
-def get_product_link(product_id: str) -> str:
-    """
-    Fetches a link for the given product_id from the Supabase table.
-    """
-    response = supabase.table("product_links").select("*").eq("product_id", product_id).execute()
-    if response.data and len(response.data) > 0:
-        return response.data[0].get("link")
-    return None
+def get_supabase_client() -> Client:
+    if not SUPABASE_URL or not SUPABASE_KEY:
+        raise ValueError("Supabase credentials not set or invalid")
+    return create_client(SUPABASE_URL, SUPABASE_KEY)

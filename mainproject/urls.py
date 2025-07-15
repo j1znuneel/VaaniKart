@@ -17,7 +17,7 @@ Including another URLconf
 from django.contrib import admin
 from django.urls import path , include
 
-from vaanikart.views import whatsapp_webhook
+
 
 urlpatterns = [
     path('admin/', admin.site.urls),
