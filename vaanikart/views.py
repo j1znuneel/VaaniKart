@@ -4,6 +4,11 @@ from django.views.decorators.csrf import csrf_exempt
 from django.http import JsonResponse, HttpResponse
 import os
 from dotenv import load_dotenv
+from rest_framework.views import APIView
+from rest_framework.response import Response
+
+from .models import Product
+from .serializers import ProductSerializer
 
 load_dotenv()
 
@@ -218,3 +223,9 @@ def whatsapp_webhook(request):
         return JsonResponse({"status": "received"}, status=200)
 
     return HttpResponse(status=405)
+
+class ProductListView(APIView):
+    def get(self, request):
+        products = Product.objects.all()
+        serializer = ProductSerializer(products, many=True)
+        return Response(serializer.data)
