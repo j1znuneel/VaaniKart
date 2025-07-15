@@ -50,11 +50,24 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+<<<<<<< HEAD
     'rest_framework',
     'vaanikart'
+=======
+    'vaanikart',
+    'corsheaders',
+    'rest_framework',  # Add Django REST Framework
+>>>>>>> 454a7dfccd35719f15a459826fb361b6a21c0c98
 ]
 
+CORS_ALLOWED_ORIGINS = [
+    "http://localhost:3000",
+]
+
+CORS_ALLOW_ALL_ORIGINS = True  # For dev only. Use CORS_ALLOWED_ORIGINS in prod.
+
 MIDDLEWARE = [
+    'corsheaders.middleware.CorsMiddleware',
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
