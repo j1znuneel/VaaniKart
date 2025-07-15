@@ -34,7 +34,10 @@ DEBUG = True
 ALLOWED_HOSTS = [
     "127.0.0.1",
     "localhost",
-    "642ff70dc7ae.ngrok-free.app",  # 👈 Add your ngrok URL here
+    "642ff70dc7ae.ngrok-free.app", 
+    "5253a5dcfa32.ngrok-free.app",
+    "ceb721f42665.ngrok-free.app",# 👈 Add your ngrok URL here
+    "b6ed4acfc16a.ngrok-free.app"
 ]
 
 # Application definition
@@ -46,6 +49,7 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+    'vaanikart'
 ]
 
 MIDDLEWARE = [
