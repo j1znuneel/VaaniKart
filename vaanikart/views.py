@@ -3,7 +3,13 @@ import requests
 from django.views.decorators.csrf import csrf_exempt
 from django.http import JsonResponse, HttpResponse
 import os
+from rest_framework import status
 from dotenv import load_dotenv
+from .models import Product
+from .serializers import ProductSerializer
+from rest_framework.views import APIView
+from rest_framework.response import Response
+from rest_framework import status
 
 load_dotenv()
 
@@ -175,7 +181,7 @@ def whatsapp_webhook(request):
                         else:
                             reply_text = "❓ Please reply with *yes* or *no* to confirm the item."
                     else:
-                        reply_text = user_text.upper()
+                        reply_text ="Please select a valid option"
                     send_reply_to_user(user_number, reply_text, access_token, phone_number_id)
 
             elif msg_type == "audio":
@@ -230,3 +236,13 @@ def whatsapp_webhook(request):
 
     return HttpResponse(status=405)
 
+
+
+
+class ProductCreateView(APIView):
+    def post(self, request, format=None):
+        serializer = ProductSerializer(data=request.data)
+        if serializer.is_valid():
+            serializer.save()
+            return Response({"message": "✅ Product created successfully", "product": serializer.data}, status=status.HTTP_201_CREATED)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
