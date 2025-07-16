@@ -210,7 +210,7 @@ const categories = [
 // API function to fetch products from Django
 async function getProductsFromApi(): Promise<Product[]> {
   try {
-    const res = await fetch("http://localhost:8000/api/products/", {
+    const res = await fetch("https://remhqhnmphsxufvdpokr.supabase.co/api/products/", {
       cache: "no-store",
       headers: {
         "Content-Type": "application/json",
