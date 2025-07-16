@@ -16,7 +16,6 @@ from .groq_description import generate_product_description_groq
 from django.shortcuts import get_object_or_404
 from rest_framework.decorators import api_view
 
-from .supabase_utils import get_product_link
 
 
 
