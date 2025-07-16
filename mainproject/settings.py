@@ -41,8 +41,11 @@ ALLOWED_HOSTS = [
     "9779a80066d3.ngrok-free.app",
     "a9cc43e61eb2.ngrok-free.app",
     "f3943af0d355.ngrok-free.app",
-    "90f458ccd0d4.ngrok-free.app",
-    "c28182c33e64.ngrok-free.app"
+    "16d1863b7094.ngrok-free.app",
+    "3007d3449fa6.ngrok-free.app",
+    "832caf4ccdd9.ngrok-free.app",
+    "e4332bcdc552.ngrok-free.app",
+    "01c3d3aaedc4.ngrok-free.app"
 ]
 
 # Application definition
@@ -100,10 +103,18 @@ WSGI_APPLICATION = 'mainproject.wsgi.application'
 # Database
 # https://docs.djangoproject.com/en/5.2/ref/settings/#databases
 
+# DATABASES = {
+#     "default": dj_database_url.config(default=os.getenv("DATABASE_URL"))
+# }
+# print("DATABASE_URL:", os.getenv("DATABASE_URL"))
+
 DATABASES = {
-    "default": dj_database_url.config(default=os.getenv("DATABASE_URL"))
+    'default': {
+        'ENGINE': 'django.db.backends.sqlite3',
+        'NAME': BASE_DIR / 'db.sqlite3',
+    }
 }
-print("DATABASE_URL:", os.getenv("DATABASE_URL"))
+
 
 # Password validation
 # https://docs.djangoproject.com/en/5.2/ref/settings/#auth-password-validators
