@@ -11,7 +11,7 @@ from .models import Product
 from .serializers import ProductSerializer
 
 from decimal import Decimal
-from .translation import translate_to_english
+from .translation import translate_text
 from .groq_description import generate_product_description_groq
 from django.shortcuts import get_object_or_404
 from rest_framework.decorators import api_view
@@ -34,7 +34,7 @@ LANGUAGE_MAP = {
 
 def extract_media_url(media_id, access_token):
     print(f"🎧 Extracting media URL for media_id: {media_id}")
-    url = f"https://graph.facebook.com/v23.0/{media_id}"
+    url = f"https://graph.facebook.com/v22.0/{media_id}"
     headers = {"Authorization": f"Bearer {access_token}"}
     response = requests.get(url, headers=headers)
     print(f"🔗 Media URL Response: {response.status_code} {response.text}")
@@ -43,7 +43,7 @@ def extract_media_url(media_id, access_token):
     return None
 
 def send_reply_to_user(user_number, message, access_token, phone_number_id):
-    url = f"https://graph.facebook.com/v23.0/{phone_number_id}/messages"
+    url = f"https://graph.facebook.com/v22.0/{phone_number_id}/messages"
     headers = {
         "Authorization": f"Bearer {access_token}",
         "Content-Type": "application/json"
@@ -266,7 +266,13 @@ def whatsapp_webhook(request):
                             print("📦 Products fetched:", products)
 
                             if not products:
-                                reply = "📦 No items found in your catalog."
+                                lang_code = USER_LANGUAGE_PREFS.get(user_number, "en")
+                                if lang_code == "hi":
+                                    reply = "📦 आपकी सूची में कोई आइटम नहीं मिला।"
+                                elif lang_code == "ta":
+                                    reply = "📦 உங்கள் பட்டியலில் எந்தவொரு பொருட்களும் காணப்படவில்லை."
+                                else:
+                                    reply = "📦 No items found in your catalog."
                             else:
                                 lang_code = USER_LANGUAGE_PREFS.get(user_number, "en")
                                 if lang_code == "hi":
@@ -279,23 +285,30 @@ def whatsapp_webhook(request):
                                 for product in products:
                                     # product_name_slug = product['name'].replace(" ", "-").lower()
                                     # product_url = f"https://vaani-kart.vercel.app/product/{product_name_slug}"
-                                    lines.append(
-                                        f"🧾 *{product['name']}*\n"
-                                        f"📄 {product['description']}\n"
+                                   name = translate_text(product['name'], lang_code)
+                                   description = translate_text(product['description'], lang_code)
+                                   category = translate_text(product['category'].replace('_', ' ').title(), lang_code)
+
+                                   lines.append(
+                                        f"🧾 *{name}*\n"
+                                        f"📄 {description}\n"
                                         f"💰 Price: ₹{product['price']}\n"
                                         f"📦 Stock: {product['current_stock']}\n"
-                                        f"🏷️ Category: {product['category'].replace('_', ' ').title()}\n"
-                                        # f"🔗 [View Product]({product_url})\n"
-                                    )
-                                reply = "\n".join(lines)
-                                
-                                # Add back option
+                                        f"🏷️ Category: {category}\n"
+                                   )
+                                  # Append back/website AFTER product loop
                                 if lang_code == "hi":
-                                    reply += "\n\nवापस जाने के लिए *back* टाइप करें।"
+                                    lines.append("🔙 वापस जाने के लिए *0* टाइप करें।")
+                                    lines.append("🌐 वेबसाइट: https://vaani-kart.vercel.app/")
                                 elif lang_code == "ta":
-                                    reply += "\n\nதிரும்ப *back* தட்டச்சு செய்யவும்."
+                                    lines.append("🔙 திரும்ப *0* தட்டச்சு செய்யவும்.")
+                                    lines.append("🌐 வலைத்தளம்: https://vaani-kart.vercel.app/")
                                 else:
-                                    reply += "\n\nType *back* to return."
+                                    lines.append("🔙 Type *0* to return.")
+                                    lines.append("🌐 Visit us: https://vaani-kart.vercel.app/")
+
+                                # Now join everything after all lines are added
+                                reply = "\n".join(lines)
                         else:
                             print(f"⚠️ API error {response.status_code}: {response.text}")
                             lang_code = USER_LANGUAGE_PREFS.get(user_number, "en")
@@ -391,23 +404,55 @@ def whatsapp_webhook(request):
                                         print(f"🔍 Delete URL: {del_response.url}")
                                         print(f"🔍 Response Status: {del_response.status_code}")
                                         print(f"🔍 Response Text: {del_response.text}")
-                                        if del_response.status_code == 200:
-                                            lang_code = USER_LANGUAGE_PREFS.get(user_number, "en")
-                                            if lang_code == "hi":
-                                                reply = f"✅ उत्पाद *{product_name}* सफलतापूर्वक हटा दिया गया।"
-                                            elif lang_code == "ta":
-                                                reply = f"✅ பொருள் *{product_name}* வெற்றிகரமாக நீக்கப்பட்டது."
-                                            else:
-                                                reply = f"✅ Product *{product_name}* deleted successfully."
+                                        # if del_response.status_code == 200:
+                                        lang_code = USER_LANGUAGE_PREFS.get(user_number, "en")
+                                        if lang_code == "hi":
+                                            reply = f"✅ उत्पाद *{product_name}* सफलतापूर्वक हटा दिया गया।"
+                                        elif lang_code == "ta":
+                                            reply = f"✅ பொருள் *{product_name}* வெற்றிகரமாக நீக்கப்பட்டது."
                                         else:
-                                            print(f"Delete API error: {del_response.status_code} - {del_response.text}")
-                                            lang_code = USER_LANGUAGE_PREFS.get(user_number, "en")
-                                            if lang_code == "hi":
-                                                reply = f"⚠️ *{product_name}* को हटाने में विफल। कृपया बाद में पुनः प्रयास करें।"
-                                            elif lang_code == "ta":
-                                                reply = f"⚠️ *{product_name}* நீக்குவதில் தோல்வி. பின்னர் மீண்டும் முயற்சிக்கவும்."
-                                            else:
-                                                reply = f"⚠️ Failed to delete *{product_name}*. Please try again later."
+                                            reply = f"✅ Product *{product_name}* deleted successfully."
+                                            
+
+                                        if lang_code == "hi":
+                                            prompt = (
+                                                "\n\nअब आप क्या करना चाहेंगे?\n"
+                                                "1️⃣ आइटम जोड़ें\n"
+                                                "2️⃣ आइटम हटाएं\n"
+                                                "3️⃣ आइटम अपडेट करें\n"
+                                                "4️⃣ आइटम देखें\n\n"
+                                                "आप कभी भी *0* टाइप करके इस मेनू पर वापस आ सकते हैं।"
+                                            )
+                                        elif lang_code == "ta":
+                                            prompt = (
+                                                "\n\nஇப்போது நீங்கள் என்ன செய்ய விரும்புகிறீர்கள்?\n"
+                                                "1️⃣ பொருட்களைச் சேர்க்கவும்\n"
+                                                "2️⃣ பொருட்களை நீக்கவும்\n"
+                                                "3️⃣ பொருட்களை புதுப்பிக்கவும்\n"
+                                                "4️⃣ பொருட்களை காண்க\n\n"
+                                                "எப்போது வேண்டுமானாலும் *0* என்று தட்டச்சு செய்து இந்த மெனுவுக்குத் திரும்பலாம்."
+                                            )
+                                        else:
+                                            prompt = (
+                                                "\n\nWhat would you like to do next?\n"
+                                                "1️⃣ Add Items\n"
+                                                "2️⃣ Remove Items\n"
+                                                "3️⃣ Update Items\n"
+                                                "4️⃣ View Items\n\n"
+                                                "You can type *0* anytime to return to this menu."
+                                            )
+
+                                        reply += prompt
+
+                                        # else:
+                                        #     print(f"Delete API error: {del_response.status_code} - {del_response.text}")
+                                        #     lang_code = USER_LANGUAGE_PREFS.get(user_number, "en")
+                                            # if lang_code == "hi":
+                                            #     reply = f"⚠️ *{product_name}* को हटाने में विफल। कृपया बाद में पुनः प्रयास करें।"
+                                            # elif lang_code == "ta":
+                                            #     reply = f"⚠️ *{product_name}* நீக்குவதில் தோல்வி. பின்னர் மீண்டும் முயற்சிக்கவும்."
+                                            # else:
+                                            #     reply = f"⚠️ Failed to delete *{product_name}*. Please try again later."
                                     except Exception as e:
                                         print("❌ Error deleting product:", str(e))
                                         lang_code = USER_LANGUAGE_PREFS.get(user_number, "en")
@@ -507,7 +552,7 @@ def process_product_input(user_number, user_input, access_token, phone_number_id
         
         # Translate to English if not already English
         if lang_code != "en":
-            translated_text = translate_to_english(user_input)
+            translated_text = translate_text(user_input,lang_code)
             print(f"🌍 Translated text: {translated_text}")
         else:
             translated_text = user_input

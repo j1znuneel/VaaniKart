@@ -206,139 +206,96 @@ const categories = [
 ]
 
 // API functions
+// Update the getProductsFromApi function in your React component
+// API function to fetch products from Django
 async function getProductsFromApi(): Promise<Product[]> {
   try {
-    // Fetch from the local proxy endpoint
-    const res = await fetch("/api/products", {
-      cache: "no-store", // Ensure fresh data
-    })
+    const res = await fetch("http://localhost:8000/api/products/", {
+      cache: "no-store",
+      headers: {
+        "Content-Type": "application/json",
+      },
+    });
+    
     if (!res.ok) {
-      const errorData = await res.json()
-      throw new Error(`HTTP error! Status: ${res.status}, Message: ${errorData.message || res.statusText}`)
+      const errorData = await res.json();
+      throw new Error(errorData.error || "Failed to fetch products");
     }
-    const data = (await res.json()) as Product[]
-    // Explicitly parse price and current_stock to numbers to prevent TypeError
-    const parsedData = data.map((product) => ({
-      ...product,
-      price: Number.parseFloat(product.price as any),
-      current_stock: Number.parseInt(product.current_stock as any, 10),
-    }))
-    return parsedData
+    
+    const data = await res.json();
+    
+    // Transform the API response to match frontend expectations
+    return data.map((product: any) => ({
+      id: product.id,
+      name: product.name,
+      description: product.description,
+      category: product.category,
+      price: parseFloat(product.price),
+      current_stock: parseInt(product.current_stock),
+      image: product.image || "/placeholder.svg?height=200&width=200",
+      organic: product.organic || false,
+      unit: product.unit || "kg",
+    }));
   } catch (error) {
-    console.error("Error fetching products:", error)
-    throw error
+    console.error("Error fetching products:", error);
+    throw error;
   }
 }
 
-// Fallback products for v0 preview or if API is unreachable
-const FALLBACK_PRODUCTS: Product[] = [
-  {
-    id: 1,
-    name: "Fresh Tomatoes",
-    description: "Fresh, juicy tomatoes perfect for cooking and salads",
-    category: "vegetables",
-    price: 40,
-    current_stock: 100,
-    image: "/placeholder.svg?height=200&width=200",
-    organic: true,
-    unit: "kg",
-  },
-  {
-    id: 2,
-    name: "Basmati Rice",
-    description: "Premium quality aromatic basmati rice",
-    category: "grains",
-    price: 120,
-    current_stock: 50,
-    image: "/placeholder.svg?height=200&width=200",
-    organic: false,
-    unit: "kg",
-  },
-  {
-    id: 3,
-    name: "Fresh Mangoes",
-    description: "Sweet and delicious seasonal mangoes",
-    category: "fruits",
-    price: 80,
-    current_stock: 30,
-    image: "/placeholder.svg?height=200&width=200",
-    organic: true,
-    unit: "kg",
-  },
-  {
-    id: 4,
-    name: "Turmeric Powder",
-    description: "Pure organic turmeric powder for cooking",
-    category: "spices",
-    price: 200,
-    current_stock: 25,
-    image: "/placeholder.svg?height=200&width=200",
-    organic: true,
-    unit: "kg",
-  },
-  {
-    id: 5,
-    name: "Fresh Milk",
-    description: "Fresh cow milk delivered daily",
-    category: "dairy",
-    price: 60,
-    current_stock: 20,
-    image: "/placeholder.svg?height=200&width=200",
-    organic: false,
-    unit: "liter",
-  },
-]
-
-// Update the `getUnitText` function to accept a `quantity` parameter and modify its logic.
 const getUnitText = (unit: string, quantity: number, dict: Record<string, string>) => {
-  if (quantity > 1) {
-    // If quantity is more than 1, return an empty string
-    return ""
-  } else {
-    // For quantity 1, return "per kg" etc.
-    switch (unit) {
-      case "kg":
-        return dict.perKg
-      case "liter":
-        return dict.perLiter
-      case "piece":
-        return dict.perPiece
-      default:
-        return `/${unit}` // For custom units, keep the original format
-    }
+  if (quantity > 1) return "";
+  switch (unit) {
+    case "kg": return dict.perKg;
+    case "liter": return dict.perLiter;
+    case "piece": return dict.perPiece;
+    default: return `/${unit}`;
   }
 }
 
 export default function VaaniKart() {
-  const [language, setLanguage] = useState<"en" | "hi" | "ta">("en")
-  const [cart, setCart] = useState<CartItem[]>([])
-  const [selectedCategory, setSelectedCategory] = useState<string | null>(null)
-  const [searchTerm, setSearchTerm] = useState("")
-  const [showSearchDropdown, setShowSearchDropdown] = useState(false)
-  const [notification, setNotification] = useState("")
-  const [isTranslating, setIsTranslating] = useState(false)
-  const [products, setProducts] = useState<Product[]>([])
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
-  const searchRef = useRef<HTMLDivElement>(null)
-  const dict = dictionaries[language]
+  const [language, setLanguage] = useState<"en" | "hi" | "ta">("en");
+  const [cart, setCart] = useState<CartItem[]>([]);
+  const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [showSearchDropdown, setShowSearchDropdown] = useState(false);
+  const [notification, setNotification] = useState("");
+  const [isTranslating, setIsTranslating] = useState(false);
+  const [products, setProducts] = useState<Product[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const searchRef = useRef<HTMLDivElement>(null);
+  const dict = dictionaries[language];
 
-  // Fetch products on component mount
+  // Fetch products from Django API
   useEffect(() => {
-    fetchProducts()
-  }, [])
+    const fetchProducts = async () => {
+      try {
+        setLoading(true);
+        setError(null);
+        const data = await getProductsFromApi();
+        setProducts(data);
+      } catch (err) {
+        console.error("Error:", err);
+        setError(err instanceof Error ? err.message : "Unknown error occurred");
+      } finally {
+        setLoading(false);
+      }
+    };
 
+    fetchProducts();
+  }, []);
   const fetchProducts = async () => {
     try {
       setLoading(true)
       setError(null)
       const fetchedProducts = await getProductsFromApi()
       setProducts(fetchedProducts)
+      console.log(products)
     } catch (err) {
       console.error("Error fetching products:", err)
       setError(err instanceof Error ? err.message : "Unknown error occurred")
       // Fallback to sample data if API fails
-      setProducts(FALLBACK_PRODUCTS)
+      // setProducts(FALLBACK_PRODUCTS)
     } finally {
       setLoading(false)
     }
@@ -814,3 +771,138 @@ export default function VaaniKart() {
     </div>
   )
 }
+// "use client";
+
+// import { useEffect, useState } from "react";
+// import { Button } from "@/components/ui/button";
+// import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
+// import { Badge } from "@/components/ui/badge";
+// import { Trash2 } from "lucide-react";
+
+// type Product = {
+//   id: number;
+//   name: string;
+//   description: string;
+//   price: number;
+//   current_stock: number;
+//   category: string;
+// };
+
+// type CartItem = {
+//   id: number;
+//   name: string;
+//   price: number;
+//   quantity: number;
+// };
+
+// export default function Home() {
+//   const [products, setProducts] = useState<Product[]>([]);
+//   const [error, setError] = useState("");
+//   const [cart, setCart] = useState<CartItem[]>([]);
+
+//   useEffect(() => {
+//     fetch("http://localhost:8000/api/products/")
+//       .then((res) => {
+//         if (!res.ok) throw new Error("Failed to fetch");
+//         return res.json();
+//       })
+//       .then((data) => setProducts(data))
+//       .catch((err) => setError(err.message));
+//   }, []);
+
+//   const addToCart = (product: Product) => {
+//     setCart((prev) => {
+//       const exists = prev.find((item) => item.id === product.id);
+//       if (exists) {
+//         return prev.map((item) =>
+//           item.id === product.id
+//             ? { ...item, quantity: item.quantity + 1 }
+//             : item
+//         );
+//       }
+//       return [...prev, { id: product.id, name: product.name, price: product.price, quantity: 1 }];
+//     });
+//   };
+
+//   const removeFromCart = (id: number) => {
+//     setCart((prev) => prev.filter((item) => item.id !== id));
+//   };
+
+//   const total = cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
+
+//   return (
+//     <main className="min-h-screen bg-gray-50 py-10 px-6">
+//       <div className="flex justify-between items-center mb-6">
+//         <h1 className="text-3xl font-bold">🛍️ Product Catalog</h1>
+
+//         <Sheet>
+//           <SheetTrigger asChild>
+//             <Button variant="outline">
+//               🛒 Cart <Badge className="ml-2">{cart.length}</Badge>
+//             </Button>
+//           </SheetTrigger>
+//           <SheetContent side="right" className="w-[350px]">
+//             <h2 className="text-xl font-bold mb-4">🧺 Your Cart</h2>
+//             {cart.length === 0 ? (
+//               <p className="text-sm text-gray-500">Cart is empty</p>
+//             ) : (
+//               <div className="space-y-4">
+//                 {cart.map((item) => (
+//                   <div
+//                     key={item.id}
+//                     className="flex justify-between items-center border-b pb-2"
+//                   >
+//                     <div>
+//                       <p className="font-semibold">{item.name}</p>
+//                       <p className="text-sm text-gray-500">
+//                         ₹{item.price} x {item.quantity}
+//                       </p>
+//                     </div>
+//                     <Button
+//                       size="icon"
+//                       variant="ghost"
+//                       onClick={() => removeFromCart(item.id)}
+//                     >
+//                       <Trash2 className="w-4 h-4 text-red-500" />
+//                     </Button>
+//                   </div>
+//                 ))}
+//                 <div className="pt-4 border-t font-semibold">
+//                   Total: ₹{total.toFixed(2)}
+//                 </div>
+//                 <Button className="w-full bg-green-600 hover:bg-green-700">
+//                   Proceed to Checkout
+//                 </Button>
+//               </div>
+//             )}
+//           </SheetContent>
+//         </Sheet>
+//       </div>
+
+//       {error && <p className="text-red-500 text-center">{error}</p>}
+
+//       <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+//         {products.map((product) => (
+//           <div key={product.id} className="bg-white rounded-xl shadow p-4">
+//             <h2 className="text-xl font-semibold mb-1">{product.name}</h2>
+//             <p className="text-sm text-gray-600 mb-2">{product.description}</p>
+//             <p className="text-md font-medium">💰 ₹{product.price}</p>
+//             <p className="text-sm text-gray-700">📦 Stock: {product.current_stock}</p>
+//             <p className="text-sm text-gray-500 mb-3">🏷️ {product.category}</p>
+//             <Button
+//               onClick={() => addToCart(product)}
+//               disabled={product.current_stock <= 0}
+//               className="w-full bg-blue-600 hover:bg-blue-700"
+//             >
+//               {product.current_stock > 0 ? "Add to Cart" : "Out of Stock"}
+//             </Button>
+//           </div>
+//         ))}
+//       </div>
+
+//       {!products.length && !error && (
+//         <p className="text-center text-gray-500 mt-8">Loading products...</p>
+//       )}
+//     </main>
+//   );
+// }
