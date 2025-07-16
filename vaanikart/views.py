@@ -34,7 +34,7 @@ LANGUAGE_MAP = {
 
 def extract_media_url(media_id, access_token):
     print(f"🎧 Extracting media URL for media_id: {media_id}")
-    url = f"https://graph.facebook.com/v23.0/{media_id}"
+    url = f"https://graph.facebook.com/v22.0/{media_id}"
     headers = {"Authorization": f"Bearer {access_token}"}
     response = requests.get(url, headers=headers)
     print(f"🔗 Media URL Response: {response.status_code} {response.text}")
@@ -43,7 +43,7 @@ def extract_media_url(media_id, access_token):
     return None
 
 def send_reply_to_user(user_number, message, access_token, phone_number_id):
-    url = f"https://graph.facebook.com/v23.0/{phone_number_id}/messages"
+    url = f"https://graph.facebook.com/v22.0/{phone_number_id}/messages"
     headers = {
         "Authorization": f"Bearer {access_token}",
         "Content-Type": "application/json"
