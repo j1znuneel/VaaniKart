@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useRef, useEffect } from "react"
-import { ShoppingCart, Search, Plus, Minus, X, ChevronDown, Languages, RefreshCw, AlertCircle } from "lucide-react"
+import { ShoppingCart, Search, ChevronDown, Languages, RefreshCw, AlertCircle, Minus, Plus, X } from "lucide-react"
 import Image from "next/image"
 
 import { Button } from "@/components/ui/button"
@@ -11,8 +11,10 @@ import { Badge } from "@/components/ui/badge"
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet"
 import { Alert, AlertDescription } from "@/components/ui/alert"
+import { ProductCard } from "@/components/product-card" // Import the new ProductCard component
+import type { Product, CartItem } from "@/types/product" // Import Product and CartItem types
 
-// Language dictionaries
+// Comprehensive language dictionaries (simulating Google Translate API)
 const dictionaries = {
   en: {
     siteName: "VaaniKart",
@@ -104,7 +106,7 @@ const dictionaries = {
     retry: "पुनः प्रयास करें",
     refreshProducts: "उत्पाद रीफ्रेश करें",
     connectionError: "कनेक्शन त्रुटि",
-    serverError: "सर्वर त्���ुटि",
+    serverError: "सर्वर त्रुटि",
   },
   ta: {
     siteName: "வாணிகார்ட்",
@@ -154,20 +156,7 @@ const dictionaries = {
   },
 }
 
-// Django API Product interface
-interface Product {
-  id: number
-  name: string
-  description: string
-  category: string
-  price: number
-  current_stock: number
-  image?: string
-  organic?: boolean
-  unit?: string
-}
-
-// Categories mapping for UI
+// Categories mapping for UI (names are translated via dictionaries)
 const categories = [
   {
     id: "vegetables",
@@ -216,29 +205,109 @@ const categories = [
   },
 ]
 
-interface CartItem {
-  id: number
-  name: string
-  price: number
-  quantity: number
-  unit: string
-  image?: string
-}
-
 // API functions
-async function getProducts(): Promise<Product[]> {
-  const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/products/`, {
-    cache: "no-store",
-    headers: {
-      "Content-Type": "application/json",
-    },
-  })
-  if (!res.ok) {
-    throw new Error("Failed to fetch products")
+async function getProductsFromApi(): Promise<Product[]> {
+  try {
+    // Fetch from the local proxy endpoint
+    const res = await fetch("/api/products", {
+      cache: "no-store", // Ensure fresh data
+    })
+    if (!res.ok) {
+      const errorData = await res.json()
+      throw new Error(`HTTP error! Status: ${res.status}, Message: ${errorData.message || res.statusText}`)
+    }
+    const data = (await res.json()) as Product[]
+    // Explicitly parse price and current_stock to numbers to prevent TypeError
+    const parsedData = data.map((product) => ({
+      ...product,
+      price: Number.parseFloat(product.price as any),
+      current_stock: Number.parseInt(product.current_stock as any, 10),
+    }))
+    return parsedData
+  } catch (error) {
+    console.error("Error fetching products:", error)
+    throw error
   }
-  return res.json()
 }
 
+// Fallback products for v0 preview or if API is unreachable
+const FALLBACK_PRODUCTS: Product[] = [
+  {
+    id: 1,
+    name: "Fresh Tomatoes",
+    description: "Fresh, juicy tomatoes perfect for cooking and salads",
+    category: "vegetables",
+    price: 40,
+    current_stock: 100,
+    image: "/placeholder.svg?height=200&width=200",
+    organic: true,
+    unit: "kg",
+  },
+  {
+    id: 2,
+    name: "Basmati Rice",
+    description: "Premium quality aromatic basmati rice",
+    category: "grains",
+    price: 120,
+    current_stock: 50,
+    image: "/placeholder.svg?height=200&width=200",
+    organic: false,
+    unit: "kg",
+  },
+  {
+    id: 3,
+    name: "Fresh Mangoes",
+    description: "Sweet and delicious seasonal mangoes",
+    category: "fruits",
+    price: 80,
+    current_stock: 30,
+    image: "/placeholder.svg?height=200&width=200",
+    organic: true,
+    unit: "kg",
+  },
+  {
+    id: 4,
+    name: "Turmeric Powder",
+    description: "Pure organic turmeric powder for cooking",
+    category: "spices",
+    price: 200,
+    current_stock: 25,
+    image: "/placeholder.svg?height=200&width=200",
+    organic: true,
+    unit: "kg",
+  },
+  {
+    id: 5,
+    name: "Fresh Milk",
+    description: "Fresh cow milk delivered daily",
+    category: "dairy",
+    price: 60,
+    current_stock: 20,
+    image: "/placeholder.svg?height=200&width=200",
+    organic: false,
+    unit: "liter",
+  },
+]
+
+// Update the `getUnitText` function to accept a `quantity` parameter and modify its logic.
+const getUnitText = (unit: string, quantity: number, dict: Record<string, string>) => {
+  if (quantity > 1) {
+    // If quantity is more than 1, return an empty string
+    return ""
+  } else {
+    // For quantity 1, return "per kg" etc.
+    switch (unit) {
+      case "kg":
+        return dict.perKg
+      case "liter":
+        return dict.perLiter
+      case "piece":
+        return dict.perPiece
+      default:
+        return `/${unit}` // For custom units, keep the original format
+    }
+  }
+}
 
 export default function VaaniKart() {
   const [language, setLanguage] = useState<"en" | "hi" | "ta">("en")
@@ -263,10 +332,13 @@ export default function VaaniKart() {
     try {
       setLoading(true)
       setError(null)
-      const fetchedProducts = await getProducts()
+      const fetchedProducts = await getProductsFromApi()
       setProducts(fetchedProducts)
     } catch (err) {
+      console.error("Error fetching products:", err)
       setError(err instanceof Error ? err.message : "Unknown error occurred")
+      // Fallback to sample data if API fails
+      setProducts(FALLBACK_PRODUCTS)
     } finally {
       setLoading(false)
     }
@@ -300,19 +372,21 @@ export default function VaaniKart() {
     }, 500)
   }
 
-  const addToCart = (product: Product) => {
+  const addToCart = (product: Product, quantityToAdd: number) => {
     setCart((prevCart) => {
       const existingItem = prevCart.find((item) => item.id === product.id)
       if (existingItem) {
-        return prevCart.map((item) => (item.id === product.id ? { ...item, quantity: item.quantity + 1 } : item))
+        return prevCart.map((item) =>
+          item.id === product.id ? { ...item, quantity: item.quantity + quantityToAdd } : item,
+        )
       } else {
         return [
           ...prevCart,
           {
             id: product.id,
-            name: product.name,
+            name: product.name, // Use product.name directly as it's a string from API
             price: product.price,
-            quantity: 1,
+            quantity: quantityToAdd,
             unit: product.unit || "kg",
             image: product.image,
           },
@@ -341,19 +415,6 @@ export default function VaaniKart() {
 
   const getTotalPrice = () => {
     return cart.reduce((total, item) => total + item.price * item.quantity, 0)
-  }
-
-  const getUnitText = (unit: string) => {
-    switch (unit) {
-      case "kg":
-        return dict.perKg
-      case "liter":
-        return dict.perLiter
-      case "piece":
-        return dict.perPiece
-      default:
-        return `/${unit}`
-    }
   }
 
   const filteredProducts = products.filter((product) => {
@@ -386,14 +447,14 @@ export default function VaaniKart() {
   }
 
   // Error state
-  if (error) {
+  if (error && products.length === 0) {
     return (
       <div className="min-h-screen bg-gradient-to-b from-green-50 to-white flex items-center justify-center p-4">
         <div className="max-w-md w-full">
           <Alert className="border-red-200 bg-red-50">
             <AlertCircle className="h-4 w-4 text-red-600" />
             <AlertDescription className="text-red-800">
-              <strong>{dict.error}:</strong> {error}
+              <strong>{dict.error}:</strong> {error}. {dict.connectionError}.
             </AlertDescription>
           </Alert>
           <div className="mt-6 text-center">
@@ -464,7 +525,7 @@ export default function VaaniKart() {
                   >
                     <Languages className="w-3 h-3 sm:w-4 sm:h-4 text-green-600" />
                     <span className="hidden sm:inline text-xs sm:text-sm font-medium">
-                      {language === "en" ? "EN" : language === "hi" ? "हि" : "த"}
+                      {language === "en" ? "EN" : language === "hi" ? "हि" : "त"}
                     </span>
                     <ChevronDown className="w-3 h-3 sm:w-4 sm:h-4" />
                   </Button>
@@ -537,7 +598,7 @@ export default function VaaniKart() {
                               <div className="flex-1 min-w-0">
                                 <h3 className="font-semibold text-sm sm:text-base truncate">{item.name}</h3>
                                 <p className="text-green-600 font-bold text-sm sm:text-base">
-                                  ₹{item.price.toFixed(2)} {getUnitText(item.unit)}
+                                  ₹{item.price.toFixed(2)} {getUnitText(item.unit, 1, dict)}
                                 </p>
                                 <div className="flex items-center space-x-2 mt-2">
                                   <Button
@@ -563,7 +624,8 @@ export default function VaaniKart() {
                               </div>
                               <div className="text-right flex-shrink-0">
                                 <p className="font-bold text-sm sm:text-base">
-                                  ₹{(item.price * item.quantity).toFixed(2)}
+                                  ₹{(item.price * item.quantity).toFixed(2)}{" "}
+                                  {getUnitText(item.unit, item.quantity, dict)}
                                 </p>
                                 <Button
                                   size="sm"
@@ -638,7 +700,7 @@ export default function VaaniKart() {
                       <div className="flex-1 min-w-0">
                         <p className="font-medium text-sm sm:text-base truncate">{product.name}</p>
                         <p className="text-green-600 text-xs sm:text-sm">
-                          ₹{product.price.toFixed(2)} {getUnitText(product.unit || "kg")}
+                          ₹{product.price.toFixed(2)} {getUnitText(product.unit || "kg", 1, dict)}
                         </p>
                       </div>
                       <div className="flex flex-col items-end space-y-1">
@@ -710,56 +772,13 @@ export default function VaaniKart() {
 
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-6">
             {filteredProducts.map((product) => (
-              <Card
+              <ProductCard
                 key={product.id}
-                className="hover:shadow-xl transition-all duration-300 border-2 border-gray-100 hover:border-green-200 group"
-              >
-                <CardContent className="p-0">
-                  <div className="relative overflow-hidden">
-                    <Image
-                      src={product.image || "/placeholder.svg?height=200&width=300"}
-                      alt={product.name}
-                      width={300}
-                      height={200}
-                      className="w-full h-36 sm:h-48 object-cover rounded-t-lg group-hover:scale-105 transition-transform duration-300"
-                    />
-                    {product.organic && (
-                      <Badge className="absolute top-2 right-2 bg-green-600 text-xs shadow-md">{dict.organic}</Badge>
-                    )}
-                    <Badge
-                      className={`absolute top-2 left-2 text-xs shadow-md ${
-                        product.current_stock > 0 ? "bg-blue-600" : "bg-red-600"
-                      }`}
-                    >
-                      {product.current_stock > 0 ? dict.inStock : dict.outOfStock}
-                    </Badge>
-                  </div>
-                  <div className="p-3 sm:p-4">
-                    <h3 className="font-semibold text-base sm:text-lg mb-1 text-gray-800 line-clamp-2">
-                      {product.name}
-                    </h3>
-                    <p className="text-xs sm:text-sm text-gray-600 mb-3 line-clamp-2">{product.description}</p>
-                    <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center mb-3 sm:mb-4 gap-1 sm:gap-0">
-                      <div>
-                        <span className="text-lg sm:text-2xl font-bold text-green-600">
-                          <p>₹{Number(product.price).toFixed(2)}</p>
-                        </span>
-                        <span className="text-gray-500 ml-1 text-sm">{getUnitText(product.unit || "kg")}</span>
-                      </div>
-                      <span className="text-xs sm:text-sm text-gray-500">
-                        {product.current_stock} {product.unit || "kg"} {dict.available}
-                      </span>
-                    </div>
-                    <Button
-                      onClick={() => addToCart(product)}
-                      disabled={product.current_stock === 0}
-                      className="w-full bg-green-600 hover:bg-green-700 text-white py-2 sm:py-3 text-sm sm:text-lg font-medium disabled:bg-gray-400 transition-all duration-200 shadow-md hover:shadow-lg"
-                    >
-                      {dict.addToCart}
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
+                product={product}
+                dict={dict}
+                getUnitText={getUnitText}
+                addToCart={addToCart}
+              />
             ))}
           </div>
 
