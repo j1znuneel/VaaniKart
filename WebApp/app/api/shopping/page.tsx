@@ -18,7 +18,7 @@ export default function VaaniKart() {
   useEffect(() => {
     async function fetchProducts() {
       try {
-        const res = await fetch('https://remhqhnmphsxufvdpokr.supabase.co/api/products/', {
+        const res = await fetch('http://localhost:8000/api/products/', {
           cache: 'no-store',
         });
 
@@ -46,7 +46,7 @@ export default function VaaniKart() {
             <p className="text-sm text-gray-500">{product.category}</p>
             <p className="text-md mt-1">₹ {product.price}</p>
             <p className="text-sm mt-1">{product.description}</p>
-            <p className={`mt-2 ${product.is_available ? 'text-green-600' : 'text-red-600'}`}>
+            <p className={`mt-2 text-${product.is_available ? 'green' : 'red'}-600`}>
               {product.is_available ? 'In Stock' : 'Out of Stock'}
             </p>
           </li>
