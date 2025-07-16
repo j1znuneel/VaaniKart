@@ -44,7 +44,8 @@ ALLOWED_HOSTS = [
     "16d1863b7094.ngrok-free.app",
     "3007d3449fa6.ngrok-free.app",
     "832caf4ccdd9.ngrok-free.app",
-    "e4332bcdc552.ngrok-free.app"
+    "e4332bcdc552.ngrok-free.app",
+    "01c3d3aaedc4.ngrok-free.app"
 ]
 
 # Application definition

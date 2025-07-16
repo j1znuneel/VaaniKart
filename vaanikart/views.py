@@ -48,6 +48,7 @@ def send_reply_to_user(user_number, message, access_token, phone_number_id):
         "Authorization": f"Bearer {access_token}",
         "Content-Type": "application/json"
     }
+    print("🔒 Token being used:", access_token[:40])
     data = {
         "messaging_product": "whatsapp",
         "to": user_number,
@@ -59,6 +60,7 @@ def send_reply_to_user(user_number, message, access_token, phone_number_id):
 
     print("📤 Sending reply to user...")
     print("Payload:", json.dumps(data, indent=2))
+
 
     response = requests.post(url, headers=headers, json=data)
 
